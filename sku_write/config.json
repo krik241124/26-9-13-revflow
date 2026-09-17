@@ -1,0 +1,22 @@
+{
+  "run": {
+    "mode": "draft",
+    "target_sku": null,
+    "max_items": null,
+    "stop_on_error": false,
+    "skip_if_success": true,
+    "update_existing_from_state": true,
+    "save_payload_snapshot": true
+  },
+  "upload": {
+    "concurrency": 3,
+    "timeout_seconds": 120,
+    "retries": 2,
+    "min_images": 5
+  },
+  "defaults": {
+    "product_type": 1,
+    "is_white_brand": false,
+    "is_original": false
+  }
+}

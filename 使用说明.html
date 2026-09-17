@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ArkSwift AutoListing｜使用说明</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f6f9;color:#26364b;font:15px/1.85 "Segoe UI","Microsoft YaHei",sans-serif}main{max-width:960px;margin:32px auto;background:#fff;padding:44px 54px;border:1px solid #e1e6ed;border-radius:14px}h1{font-size:30px;margin:3px 0 6px}h2{font-size:21px;margin:34px 0 12px;padding-bottom:8px;border-bottom:1px solid #e7ebf1}h3{font-size:16px;margin:22px 0 7px}.muted{color:#7f8b9a;font-size:13px}.tag{font-size:12px;letter-spacing:1.8px;color:#42649a}.box{background:#eef4ff;border-left:4px solid #587fae;padding:14px 18px;margin:18px 0;border-radius:5px}.warn{background:#fff7e8;border-color:#c79a43}.ok{background:#edf8f2;border-color:#4b9878}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:18px 0}.flow div{background:#f3f6fa;border:1px solid #e1e7ef;border-radius:8px;padding:12px;text-align:center;font-size:13px}.step{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#eaf1fb;color:#315d97;font-weight:700;margin-right:6px}table{border-collapse:collapse;width:100%;margin:13px 0;font-size:13px}th,td{border:1px solid #e0e5ec;padding:10px 12px;text-align:left;vertical-align:top}th{background:#f5f7fa}code{font-family:Consolas,monospace;background:#f1f3f6;padding:2px 5px;border-radius:4px}li{margin:6px 0}nav{background:#f7f9fc;padding:14px 18px;margin:20px 0;line-height:2.1}nav a{color:#315f98;text-decoration:none;margin-right:18px;display:inline-block}footer{margin-top:36px;border-top:1px solid #e6ebf1;padding-top:14px;color:#8a96a6;font-size:12px}@media(max-width:700px){main{margin:0;padding:22px;border:0;border-radius:0}.flow{grid-template-columns:1fr 1fr}}@media print{body{background:#fff}main{margin:0;max-width:none;border:0;padding:0}nav{display:none}.box,tr{break-inside:avoid}}
+</style></head><body><main>
+<div class="tag">ARKSWIFT INTERNAL TOOL · 运营使用说明</div>
+<h1>ArkSwift AutoListing</h1>
+<p class="muted">Windows 本地控制台 · 版本以控制台右上角 / VERSION.txt 为准</p>
+<p>这份说明只讲日常操作。正常使用不需要打开 PowerShell、不需要运行 Python、不需要修改 JSON，也不需要手工搬运中间文件。</p>
+<div class="box ok"><strong>日常只记住两件事：</strong>第一次使用先双击 <code>setup.bat</code>；以后每次双击 <code>start.bat</code>。浏览器打开后，严格按 Step 1 → 4 从左到右执行。</div>
+<nav><a href="#start">1. 启动</a><a href="#config">2. 市场与登录</a><a href="#workflow">3. 四步流程</a><a href="#mapping">4. Mapping</a><a href="#results">5. 结果</a><a href="#trouble">6. 常见问题</a></nav>
+
+<h2 id="start">1. 启动与关闭</h2>
+<h3>第一次使用</h3>
+<ol><li>确认电脑已安装 <strong>Python 3.10+</strong>，Windows 安装时保留 Python Launcher。</li><li>在项目根目录双击 <strong>setup.bat</strong>。</li><li>看到 <code>Setup completed</code> 后，双击 <strong>start.bat</strong>。</li></ol>
+<h3>以后日常使用</h3>
+<p>直接双击 <strong>start.bat</strong>。浏览器会自动打开 ArkSwift AutoListing 本地工作台。</p>
+<p>程序默认使用 <code>127.0.0.1:8765</code>；端口占用时会自动换到 8766～8775。重复双击不会启动第二套任务，而是复用已有控制台。</p>
+<div class="box warn"><strong>任务运行中不要关闭启动窗口。</strong>只关闭浏览器标签页不会立即停止后台服务；抓取或写入过程中也不要同时用 CLI 跑同一批次。</div>
+
+<h2 id="config">2. 先选市场，再配置登录</h2>
+<h3>① 选择当前市场</h3>
+<p>在页面顶部选择 FR / CA / DE / ES / US / IT / UK / PT / PL / RO。店铺 ID 已在配置中维护，普通运营不要手改。</p>
+<h3>② ArkSwift 登录</h3>
+<ol><li>在浏览器正常登录 ArkSwift，并进入当前目标店铺。</li><li>按 F12 → Network，刷新页面，打开一个 ArkSwift 请求。</li><li>从 Request Headers 中复制 Cookie 的<strong>值</strong>，或取得 Authorization_web。</li><li>回到工具，点击 <strong>ArkSwift 登录 → 配置</strong>，粘贴并保存。</li><li>点击 <strong>测试连接</strong>。只有测试成功才说明当前会话有效。</li></ol>
+<h3>③ CL 数据源</h3>
+<ol><li>登录 CL，并<strong>切到与当前市场相同的国家</strong>。</li><li>打开任意一个商品详情，F12 → Network → 找到 <strong>GetDetail</strong>。</li><li>右键 <strong>Copy → Copy as cURL</strong>。</li><li>回到工具，点击 <strong>CL 数据源 → 配置</strong>，粘贴完整 cURL，保存并测试连接。</li></ol>
+<div class="box warn"><strong>切换市场后，必须重新确认 CL 已切到对应国家，并更新对应国家的 cURL。</strong> 工具能验证请求是否可用，但无法替你判断这条 CL cURL 实际属于哪个国家。</div>
+<p class="muted">凭证弹窗不会回显现有 Cookie / cURL，这是安全设计。“已配置”只表示本机已有内容，不代表仍未过期。</p>
+
+<h2 id="workflow">3. 四步完成一个批次</h2>
+<div class="flow"><div><span class="step">1</span>SKU Detect</div><div><span class="step">2</span>RevFlow</div><div><span class="step">3</span>Preflight / Mapping</div><div><span class="step">4</span>Dry Run / Draft</div></div>
+
+<h3><span class="step">1</span>SKU Detect</h3>
+<ol><li>把原始 SKU 直接粘贴到输入框，<strong>每行一个、无表头</strong>；也可以拖入 TXT / CSV。</li><li>点击 <strong>开始检测</strong>。</li><li>结果会显示：总 SKU、已存在、需要创建、查询错误。</li><li>如果有 Errors，先点击 <strong>重试 Errors</strong>；Errors 没有清零前不要进入 Step 2。</li></ol>
+<p><strong>判断规则：</strong>ERROR 代表“没有查清楚”，不是“不存在”。Need Create 才是下一步需要抓取并创建的 SKU。</p>
+
+<h3><span class="step">2</span>RevFlow · CL Extract</h3>
+<ol><li>确认 CL 已配置，并且国家正确。</li><li>点击 <strong>开始抓取</strong>。</li><li>程序自动读取 Step 1 的 Need Create，无需选择任何中间文件。</li><li>完成后查看“提取成功 / 异常 / 已存在或跳过”。有异常时点击 <strong>查看 Summary / 错误</strong>。</li></ol>
+<p>网络中断或部分失败后可以修复问题再重跑；程序会复用已完成缓存。若你明确需要刷新已抓取内容，应交由维护人员处理。</p>
+
+<h3><span class="step">3</span>Preflight · Mapping</h3>
+<ol><li>点击 <strong>运行预检</strong>。</li><li>预检会检查分类、属性、图片、尺寸重量、必填字段和完整 Payload 所需数据。</li><li>若出现 <strong>Mapping 问题</strong>，按下一节处理。</li><li>若出现 <strong>BLOCKED / CL ERROR</strong>，查看报告，修复原始数据或来源问题后重新预检。</li><li>状态显示 <strong>Preflight Passed</strong> 后才能进入 Step 4。</li></ol>
+<div class="box warn"><strong>不要为了“过预检”编造尺寸、重量、分类或属性。</strong> Mapping 只能解决字典对应关系，不能替代事实数据核对。</div>
+
+<h3><span class="step">4</span>SKU Write · Audit</h3>
+<ol><li>先点击 <strong>① Dry Run</strong>。它会做完整校验，但<strong>不会上传图片、不会创建草稿</strong>。</li><li>Dry Run Passed 后，点击 <strong>② 创建草稿</strong>。</li><li>确认弹窗中的 <strong>Market、Store、待创建 SKU 数量</strong>。</li><li>点击 <strong>确认创建</strong>。程序开始上传图片并保存 ArkSwift Draft。</li><li>完成后查看本批次结果和 Audit，并到 ArkSwift 后台抽查草稿。</li></ol>
+<p><strong>工具只创建 Draft，不自动发布商品。</strong></p>
+
+<h2 id="mapping">4. Mapping 问题怎么处理</h2>
+<ol><li>Step 3 出现 Mapping 问题后，点击 <strong>打开 / 填写建议 CSV</strong>。</li><li>点击 <strong>复制 AI 提示词</strong>，把 CSV 与当前店铺可选类目 / 属性交给 AI 或人工核对。</li><li>AI / 人工只填写建议列，不改原始问题列。</li><li>人工复核后，把填写好的 CSV 拖回页面。</li><li>点击 <strong>应用映射并重新预检</strong>。程序会用 ArkSwift 实时字典验证；非法目标会被拒绝。</li></ol>
+<table><thead><tr><th>字段</th><th>怎么填</th></tr></thead><tbody>
+<tr><td><code>suggested_target</code></td><td>建议的真实 ArkSwift 分类路径或属性名称。</td></tr>
+<tr><td><code>confidence</code></td><td>建议置信度，供人工判断。</td></tr>
+<tr><td><code>review_note</code></td><td>选择理由、证据或疑点。</td></tr>
+<tr><td><code>final_target</code></td><td>可选。人工最终确认值；填写后优先于 suggested_target。</td></tr>
+</tbody></table>
+<p>无法确定就留空并说明，不要猜。新一轮 Mapping 问题使用新报告，不要直接沿用旧建议。</p>
+
+<h2 id="results">5. 完成后看什么</h2>
+<table><thead><tr><th>状态 / 入口</th><th>含义</th></tr></thead><tbody>
+<tr><td>Draft Saved</td><td>本地记录显示草稿创建成功；仍建议后台抽查。</td></tr>
+<tr><td>Already Exists</td><td>保存时发现 Seller SKU 已存在，按重复 SKU 规则收口，不继续重复创建。</td></tr>
+<tr><td>Failed</td><td>本批次创建失败，需要查看 Failed 与 Logs 排查。</td></tr>
+<tr><td>查看历史 Audit</td><td>完整审计记录。历史 SKU 会保留，不要手工删掉来“重新开始”。</td></tr>
+<tr><td>Payload / Logs</td><td>维护排查使用；运营不要手工编辑。</td></tr>
+<tr><td>打开工作目录</td><td>当前市场完整运行数据。不要跨国家复制 State/Audit。</td></tr>
+</tbody></table>
+<div class="box ok"><strong>推荐验收：</strong>每次批量写入后，在 ArkSwift 后台抽查标题、分类、颜色/材质、尺寸重量、图片和草稿状态，并与 Audit 对照。</div>
+
+<h2 id="trouble">6. 常见问题</h2>
+<table><thead><tr><th>现象</th><th>处理</th></tr></thead><tbody>
+<tr><td>start.bat 提示先运行 setup</td><td>双击 setup.bat；确认 Python 3.10+ 和 Python Launcher 已安装。</td></tr>
+<tr><td>浏览器没有自动打开</td><td>先看启动窗口是否显示本机地址；重复双击 start.bat 会尝试复用已有实例。</td></tr>
+<tr><td>ArkSwift 401 / 403</td><td>重新登录 ArkSwift，更新 Cookie / Authorization_web，再测试连接。</td></tr>
+<tr><td>CL 请求失败 / 非 JSON</td><td>先确认 CL 浏览器页面可用、国家正确，再重新复制 GetDetail cURL。</td></tr>
+<tr><td>Detect 有 Errors</td><td>修复登录或网络，重试 Errors；错误不清零不要继续。</td></tr>
+<tr><td>RevFlow 有 ERROR / PARTIAL</td><td>查看 Summary / Logs，修复 CL 来源或数据问题后重跑。</td></tr>
+<tr><td>Mapping 无法应用</td><td>目标不在当前 ArkSwift 实时字典中；重新核对真实分类 / 属性。</td></tr>
+<tr><td>Preflight BLOCKED</td><td>看阻塞原因。尺寸、重量、图片不足等需要修复事实数据，而不是强行映射。</td></tr>
+<tr><td>“创建草稿”按钮灰色</td><td>必须先 Preflight Passed，再 Dry Run Passed，并且当前仍有待创建 SKU。</td></tr>
+<tr><td>改了市场 / 配置 / Mapping 后按钮又锁住</td><td>正常。关键输入变化后旧校验会失效，需要重新 Preflight / Dry Run。</td></tr>
+<tr><td>任务被中断</td><td>重新打开控制台查看最近日志。不要删除 State/Audit；正常重跑会按已有成功状态续跑或跳过。</td></tr>
+</tbody></table>
+
+<h2>使用边界</h2>
+<ul><li>一个项目实例同一时间只跑一个任务，不要 Web 与 CLI 并发操作同一工作区。</li><li>不要删除 State / Audit / Payload 来强制重做；确需强制刷新或换店铺，交给维护人员处理。</li><li>不要把一个国家的 workspace 复制到另一个国家。</li><li>Cookie、Authorization、CL cURL、Payload、Logs 可能包含内部数据，不要外发。</li><li>源码交付包不包含真实凭证、workspace、archive、.venv 或缓存。</li></ul>
+<footer>ArkSwift AutoListing · 当前版本以 VERSION.txt / 控制台显示为准。维护资料见 docs 文件夹。</footer>
+</main></body></html>

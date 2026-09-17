@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="console-token" content="{{ token }}">
+  <title>ArkSwift AutoListing</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header><div class="brand"><span class="brand-mark">A</span><div><h1>ArkSwift AutoListing</h1><p>INTERNAL TOOL <span>本地工作台</span></p></div></div><span class="version" id="version">v1.1</span></header>
+  <section class="toolbar" aria-label="配置">
+    <label>当前市场<select id="market" aria-label="当前市场"></select></label>
+    <div><span class="label">ArkSwift 登录</span><button id="ark-open" class="config-button"><span id="ark-status">○ 未配置</span><span>配置 ↗</span></button></div>
+    <div><span class="label">CL 数据源</span><button id="cl-open" class="config-button"><span id="cl-status">○ 未配置</span><span>配置 ↗</span></button></div>
+    <button id="settings-open" class="soft settings">运行设置</button>
+  </section>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <div class="section-label"><span>批次流程</span><div></div><span>所有输入输出自动传递</span></div>
+  <div class="workbench"><div class="flow-column">
+  <section class="steps">
+    <article class="card" id="card-detect">
+      <div class="card-head"><div><span class="eyebrow">STEP 1</span><h2>SKU Detect</h2></div><span class="badge" id="detect-status">未开始</span></div>
+      <div class="activity" id="activity-detect" role="status" hidden></div>
+      <dl><dt>输入</dt><dd>原始待上架 SKU</dd><dt>输出</dt><dd>All / Need Create / Errors</dd></dl>
+      <textarea id="skus" rows="4" placeholder="拖入 TXT / CSV，或直接粘贴 SKU，每行一个" aria-label="原始待上架 SKU"></textarea>
+      <div class="input-meta"><label class="text-link">选择 TXT / CSV<input id="sku-file" type="file" accept=".txt,.csv" hidden></label><span id="input-count">每行一个，无表头</span></div>
+      <div id="detect-metrics" class="metrics"></div>
+      <p id="detect-message" class="warning" hidden></p>
+      <button id="detect" class="primary wide">开始检测</button>
+      <div class="links"><button data-report="need">查看 Need Create</button><button data-open="detect">打开结果目录</button><button id="retry" hidden>重试 Errors</button></div>
+    </article>
+    <article class="card" id="card-extract">
+      <div class="card-head"><div><span class="eyebrow">STEP 2</span><h2>RevFlow · CL Extract</h2></div><span class="badge" id="extract-status">等待 Step 1</span></div>
+      <div class="activity" id="activity-extract" role="status" hidden></div>
+      <dl><dt>输入</dt><dd>自动读取 Need Create</dd><dt>输出</dt><dd>summary.csv + 每 SKU 产品资料 / 图片</dd></dl>
+      <p class="step-note">无需复制文件。当前批次将自动读取上一步结果。</p>
+      <div id="extract-metrics" class="metrics"></div>
+      <p class="hint">切换市场后，请更新对应国家的 CL cURL。</p>
+      <div class="push"></div>
+      <button id="extract" class="primary wide" disabled>开始抓取</button>
+      <div class="links"><button data-report="summary">查看 Summary / 错误</button><button data-open="extract">打开输出目录</button></div>
+    </article>
+    <article class="card" id="card-preflight">
+      <div class="card-head"><div><span class="eyebrow">STEP 3</span><h2>Preflight · Mapping</h2></div><span class="badge" id="preflight-status">等待 Step 2</span></div>
+      <div class="activity" id="activity-preflight" role="status" hidden></div>
+      <dl><dt>输入</dt><dd>自动读取 summary + 产品目录</dd><dt>输出</dt><dd>READY / REVIEW / BLOCKED</dd></dl>
+      <p class="step-note">有 Mapping 问题时：打开建议 CSV → AI / 人工填写<br>→ Apply Mapping → 自动重新预检。</p>
+      <div id="preflight-metrics" class="metrics"></div>
+      <div id="blocker-guide" class="intervention" hidden><strong>需要人工处理 · 尚未创建草稿</strong><ul id="blocker-list"></ul><p>先查看预检报告，核实产品原始资料及单位，修正数据后重新预检。不要为通过校验编造尺寸或重量。</p></div>
+      <div class="mapping-tools" id="mapping-tools" hidden>
+        <strong>需要人工处理映射</strong>
+        <ol><li>打开建议 CSV，将文件和当前店铺的可选类目 / 属性交给 AI 或人工核对。</li><li>复制下方提示词，让 AI 保留表头和原始行，填写建议；人工复核。</li><li>把填写后的 CSV 拖入下方，点击应用映射，程序会自动重新预检。</li></ol>
+        <button id="mapping-prompt">复制 AI 提示词</button>
+        <details class="prompt-details"><summary>查看 / 手动复制提示词</summary><textarea id="mapping-prompt-text" rows="5" readonly aria-label="AI 映射提示词">请协助填写 ArkSwift Mapping CSV。保持原始列名、行数、issue_type 和 source_value 不变。根据 sample_skus、sample_item_names、sample_titles 及我提供的当前店铺可选类目/属性，填写 suggested_target 和 review_note。final_target 留空，避免覆盖 suggested_target。仅使用真实存在的目标值，不编造 ID、类目或属性；无法确认时留空并说明缺少的证据。不要修改产品尺寸、重量或其他事实，不要填入登录凭证。输出 UTF-8 CSV 文件，不要 Markdown。建议会由人工核对，并由程序实时校验后应用。</textarea>
+        <button data-open="suggested">打开 / 填写建议 CSV</button>
+        <label class="mapping-drop" id="mapping-drop">拖入填写后的 CSV，或点击选择<input id="mapping-file" type="file" accept=".csv" hidden></label>
+        <button id="mapping" class="soft">应用映射并重新预检</button>
+      </div>
+      <div class="push"></div>
+      <button id="preflight" class="primary wide" disabled>运行预检</button>
+      <div class="links"><button data-report="preflight">查看预检报告</button><button data-report="mapping">查看 Mapping 问题</button></div>
+    </article>
+    <article class="card" id="card-write">
+      <div class="card-head"><div><span class="eyebrow">STEP 4</span><h2>SKU Write · Audit</h2></div><span class="badge" id="write-status">等待 Preflight</span></div>
+      <div class="activity" id="activity-write" role="status" hidden></div>
+      <dl><dt>输入</dt><dd>已通过 Preflight 的产品数据</dd><dt>输出</dt><dd>ArkSwift Draft + Audit + Payload + Logs</dd></dl>
+      <p class="step-note" id="write-note">先完成 Dry Run 校验，通过后才可创建草稿。</p>
+      <p class="hint" id="limited" hidden>当前 CLI 配置设有单 SKU / 数量限制，本次将按该范围执行。</p>
+      <div class="push"></div>
+      <div class="button-row"><button id="dry-run" class="soft" disabled>① Dry Run</button><button id="write" class="primary" disabled>② 创建草稿</button></div>
+      <p class="hint footnote">先校验，后写入。保留原有断点续跑与重复 SKU 处理。</p>
+    </article>
+  </section>
+  <section class="results" id="batch-results" hidden><div><h2 id="result-title">本批次结果</h2><p id="result-description">成功、已存在、需人工、失败和审计记录都在这里查看</p><div class="metrics" id="audit-metrics"></div></div><button data-open="workspace">打开工作目录 ↗</button><div class="links result-links"><button data-report="audit_csv">查看历史 Audit</button><button data-report="failed">查看 Failed</button><button data-open="payloads">打开 Payload</button><button data-open="logs">打开 Logs</button></div></section>
+  </div><aside class="log-sidebar"><details id="logs" open><summary>实时任务日志 <span id="job-status">暂无任务</span></summary><p id="job-message" class="hint"></p><label class="follow-control"><input id="log-follow" type="checkbox" checked> 跟随最新日志</label><pre id="log-content">执行任务后，这里会显示进度和最近日志。</pre></details></aside></div>
+  <footer><span>仅在本机运行 · {{ request.host }}</span><span id="store-label"></span></footer>
+</main>
+<dialog id="ark-dialog"><form method="dialog"><div class="modal-head"><h2>ArkSwift 凭证</h2><button class="close" aria-label="关闭">×</button></div></form><p>登录 ArkSwift 后，从浏览器 Network 请求中复制凭证。已有凭证不会回显；只测试连接时无需重新粘贴。</p><label>Authorization_web（与 Cookie 二选一）<input id="authorization" type="password" autocomplete="off"></label><label>Cookie<textarea id="cookie" rows="5" autocomplete="off" spellcheck="false"></textarea></label><p class="hint">已配置仅表示本机有凭证，是否有效请测试连接。填写 Cookie 时优先使用 Cookie。</p><div class="button-row"><button id="ark-save" class="primary">保存</button><button id="ark-test">测试连接</button></div></dialog>
+<dialog id="cl-dialog"><form method="dialog"><div class="modal-head"><h2>CL cURL</h2><button class="close" aria-label="关闭">×</button></div></form><p>请在 CL 登录并切换到当前国家：<br>F12 → Network → GetDetail → Copy as cURL，然后粘贴。</p><textarea id="curl" rows="9" placeholder="粘贴完整 GetDetail cURL" autocomplete="off" spellcheck="false"></textarea><p class="hint">已有 cURL 不回显。切换国家后需更新；测试验证连接，不代替国家核对。</p><div class="button-row"><button id="cl-save" class="primary">保存</button><button id="cl-test">测试连接</button></div></dialog>
+<dialog id="settings-dialog"><form method="dialog"><div class="modal-head"><h2>运行设置</h2><button class="close" aria-label="关闭">×</button></div></form><p>默认值适用于日常运行；任务运行中不能修改。</p><div id="settings-fields" class="settings-grid"></div><button id="settings-save" class="primary wide">保存设置</button></dialog>
+<dialog id="report-dialog" class="report-dialog"><form method="dialog"><div class="modal-head"><h2 id="report-title">结果预览</h2><button class="close" aria-label="关闭">×</button></div></form><p id="report-note" class="hint"></p><pre id="report-content"></pre></dialog>
+<dialog id="write-dialog"><form method="dialog"><div class="modal-head"><h2>确认创建 ArkSwift 草稿</h2><button class="close" aria-label="关闭">×</button></div></form><p>即将上传图片并向当前店铺创建草稿。</p><div class="confirm-box"><p id="confirm-market"></p><p id="confirm-store"></p><p id="confirm-count"></p></div><p class="hint">请核对市场与数量。已有成功状态的 SKU 会按原有规则跳过。</p><div class="button-row"><button id="write-cancel">取消</button><button id="write-confirm" class="primary">确认创建</button></div></dialog>
+</body></html>

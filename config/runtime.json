@@ -1,0 +1,9 @@
+{
+  "market": "es",
+  "max_images": 12,
+  "image_workers": 4,
+  "delay": 0.8,
+  "timeout": 30,
+  "image_timeout": 20,
+  "checkpoint_every": 10
+}
