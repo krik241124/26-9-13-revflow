@@ -38,6 +38,7 @@ from project_config import (
     PROJECT_ROOT, load_runtime, market_config, workspace_paths,
     validate_detect, write_extract_context,
 )
+from browser_auth import load_cl_auth
 
 
 def load_config() -> dict:
@@ -349,6 +350,36 @@ def _query_value(url: str, name: str) -> Optional[str]:
             return v
     return None
 
+def build_configured_seed_url(market: str) -> str:
+    """Build GetDetail request context from stable market config, not a copied cURL."""
+    info = market_config(market)
+    language = clean_text(info.get("cl_language")) or str(info.get("country_code") or "").upper()
+    country_guid = clean_text(info.get("cl_country_guid"))
+    if not country_guid:
+        raise ValueError(
+            f"{market.upper()} 尚未配置 CL country GUID。请在 config/markets.json 填写 cl_country_guid。"
+        )
+    query = urlencode({
+        "keyValue": "__ARKSWIFT_SEED__",
+        "language": language,
+        "country": country_guid,
+        "lineGuid": "",
+        "_": int(time.time() * 1000),
+    })
+    return f"https://cl.aosom.cloud/CA_PID_MASTER/CountryList/GetDetail?{query}"
+
+
+def browser_cl_headers() -> Dict[str, str]:
+    auth = load_cl_auth()
+    return {
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en,zh-CN;q=0.9,zh;q=0.8",
+        "account": str(auth.get("account") or "").strip(),
+        "Cookie": str(auth.get("raw_cookie") or "").strip(),
+        "Referer": str(auth.get("referer") or "https://cl.aosom.cloud/Home/Index"),
+        "User-Agent": str(auth.get("user_agent") or "Mozilla/5.0"),
+        "X-Requested-With": "XMLHttpRequest",
+    }
 
 def build_sku_url(
     seed_url: str,
@@ -1866,7 +1897,6 @@ def main() -> int:
         raise ValueError("need_create 含有完整清单以外的 SKU，请重新检测。")
 
     args = SimpleNamespace(
-        curl=PROJECT_ROOT / "revflow" / "getdetail.curl.txt",
         input=input_path,
         sheet=None,
 
@@ -1896,12 +1926,17 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
 
     write_extract_context(country_prefix, detect_manifest, complete=False)
-    if not args.curl.is_file():
-        raise FileNotFoundError("缺少 revflow/getdetail.curl.txt；请在 CL 对应国家复制 GetDetail 请求为 cURL。")
-    seed_url, headers = parse_curl_file(args.curl)
-    if "getdetail" not in seed_url.lower():
-        log("[WARN] Seed URL does not contain 'GetDetail'. Make sure you copied the correct XHR.")
-    session = make_session(headers, cookie_domain=urlsplit(seed_url).hostname)
+    seed_url: Optional[str] = None
+    session: Optional[requests.Session] = None
+
+    def ensure_cl_client() -> Tuple[requests.Session, str]:
+        nonlocal session, seed_url
+        if session is None or seed_url is None:
+            seed_url = build_configured_seed_url(country_prefix)
+            headers = browser_cl_headers()
+            session = make_session(headers, cookie_domain=urlsplit(seed_url).hostname)
+            log("[INFO] CL auth loaded from browser-captured session; market context loaded from config/markets.json")
+        return session, seed_url
 
     log(f"[INFO] input worklist: {input_path}")
     log(f"[INFO] sku_detect mask: {todo_path} | to_do={len(todo_set)} | skip_existing={len(skus) - len(todo_set)}")
@@ -1960,6 +1995,7 @@ def main() -> int:
                 log(f"  [CACHE] completed CL output reused | images={image_count}")
                 raise StopIteration
 
+            session, seed_url = ensure_cl_client()
             seed_sku = clean_text(_query_value(seed_url, "keyValue"))
             resolved_line_guid = None
 

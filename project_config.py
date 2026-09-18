@@ -75,10 +75,20 @@ def load_write_config() -> dict:
 def load_auth() -> dict:
     path = PROJECT_ROOT / "sku_write" / "auth.json"
     if not path.is_file():
-        raise FileNotFoundError("请复制 sku_write/auth.example.json 为 auth.json，再填入当前 ArkSwift 登录凭证。")
+        raise FileNotFoundError("当前市场尚未配置 ArkSwift 登录；请在控制台点击 ArkSwift → Check / Sign in。")
     auth = read_json(path)
     if not any(str(auth.get(key) or "").strip() for key in ("raw_cookie", "authorization_web")):
         raise ValueError("sku_write/auth.json 凭证为空；请重新登录 ArkSwift 并更新。")
+
+    # ArkSwift stores are isolated by market. Never allow a token captured for
+    # one store to be silently reused by Detect / Preflight / Write for another.
+    market = load_runtime()["market"]
+    info = market_config(market)
+    if auth.get("market") != market or str(auth.get("store_id") or "") != info["store_id"]:
+        raise ValueError(
+            f"ArkSwift 登录与当前市场 {market.upper()} / Store {info['store_id']} 不匹配；"
+            "请重新执行 ArkSwift Check / Sign in。"
+        )
     return auth
 
 

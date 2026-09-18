@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'sku_write')]
 import project_config as pc
 from sku_detect.detect import retry_results
+import browser_auth
 
 
 def now():
@@ -86,6 +87,7 @@ def scrubber():
     tokens = []
     auth = read_json(ROOT / 'sku_write/auth.json')
     values = list(auth.values())
+    values.extend(read_json(ROOT / 'workspace/_auth/cl.json').values())
     curl = ROOT / 'revflow/getdetail.curl.txt'
     if curl.is_file():
         values.append(curl.read_text(encoding='utf-8-sig', errors='replace'))
@@ -133,6 +135,124 @@ def current_audit(market):
     return rows
 
 
+def _preflight_view(market):
+    """Translate CLI preflight output into batch/UI semantics without changing CLI business logic."""
+    reports = csv_rows(artifact(market, 'preflight'))
+    raw_mapping = csv_rows(artifact(market, 'mapping'))
+
+    # A blank source value cannot be mapped. It is a source-data problem for that SKU,
+    # not an actionable Mapping task. Keep the original CSV untouched; only filter it
+    # from the UI gate/count.
+    actionable_mapping = [
+        row for row in raw_mapping
+        if (row.get('issue_type') or '').strip().lower() in {'category', 'color', 'material'}
+        and (row.get('source_value') or '').strip()
+    ]
+
+    counts = Counter(r.get('status') for r in reports)
+    runnable = counts['READY'] + counts['READY_WITH_WARNINGS']
+    excluded = counts['BLOCKED'] + counts['CL_ERROR']
+
+    blockers = []
+    for row in reports:
+        if row.get('status') not in {'BLOCKED', 'CL_ERROR'}:
+            continue
+
+        reason = (row.get('blockers') or '').strip()
+        parts = [part.strip() for part in reason.split('|') if part.strip()]
+        missing = []
+        kept = []
+        source_color = (row.get('source_color') or '').strip()
+        source_material = (row.get('source_material') or '').strip()
+
+        for part in parts:
+            key, sep, value = part.partition(':')
+            normalized_key = key.strip().lower()
+            if sep and normalized_key == 'color' and not source_color and not value.strip():
+                missing.append('color')
+                continue
+            if sep and normalized_key == 'material' and not source_material and not value.strip():
+                missing.append('material')
+                continue
+            kept.append(part)
+
+        if missing:
+            kept.insert(0, 'source data missing: ' + ', '.join(missing))
+
+        blockers.append({
+            'sku': row.get('sku'),
+            'reason': ' | '.join(kept) or reason,
+        })
+
+    return {
+        'reports': reports,
+        'counts': counts,
+        'runnable': runnable,
+        'excluded': excluded,
+        'actionable_mapping': actionable_mapping,
+        'blank_source_mapping': len(raw_mapping) - len(actionable_mapping),
+        'blockers': blockers,
+    }
+
+
+def _preflight_can_continue(market):
+    view = _preflight_view(market)
+    if not view['reports'] or not view['runnable'] or view['actionable_mapping']:
+        return False
+    try:
+        pc.validate_extract(market)
+    except (OSError, ValueError, KeyError):
+        return False
+    return True
+
+
+def _excluded_preflight_skus(market):
+    return {
+        (row.get('sku') or '').strip()
+        for row in _preflight_view(market)['reports']
+        if row.get('status') not in {'READY', 'READY_WITH_WARNINGS'}
+        and (row.get('sku') or '').strip()
+    }
+
+
+def _audit_failures_since(path, started_at):
+    try:
+        cutoff = datetime.fromisoformat(started_at)
+    except (TypeError, ValueError):
+        return set()
+
+    failed = set()
+    for row in csv_rows(path):
+        if (row.get('run_status') or '').strip().upper() not in {'ERROR', 'CL_ERROR'}:
+            continue
+        try:
+            saved = datetime.fromisoformat(row.get('saved_at', ''))
+        except (TypeError, ValueError):
+            continue
+        if saved >= cutoff:
+            sku = (row.get('seller_sku') or '').strip()
+            if sku:
+                failed.add(sku)
+    return failed
+
+
+def _only_expected_failures(market, action, started_at):
+    excluded = _excluded_preflight_skus(market)
+    if not excluded:
+        return False
+
+    paths = pc.workspace_paths(market)
+    if action == 'dry-run':
+        audit_path = paths['review'] / f'dry_run_{market}.csv'
+    elif action == 'write':
+        audit_path = paths['audit'] / f'arkswift_draft_summary_{market}.csv'
+    else:
+        return False
+
+    failures = _audit_failures_since(audit_path, started_at)
+    return bool(failures) and failures <= excluded
+
+
 def status(market):
     paths = pc.workspace_paths(market)
     detected, detect_error = [], ''
@@ -150,14 +270,28 @@ def status(market):
     except (OSError, ValueError, KeyError):
         pass
     summary = csv_rows(artifact(market, 'summary'))
-    reports = csv_rows(artifact(market, 'preflight'))
-    mapping = csv_rows(artifact(market, 'mapping'))
+    preflight_view = _preflight_view(market)
+    reports = preflight_view['reports']
+    mapping = preflight_view['actionable_mapping']
+    counts = preflight_view['counts']
     proof = read_json(proof_path(market))
     current = fingerprint(market)
-    counts = Counter(r.get('status') for r in reports)
-    preflight_ok = bool(reports) and extract_ready and proof.get('preflight') == current and not (
-        counts['BLOCKED'] or counts['CL_ERROR'] or mapping)
-    dry_ok = preflight_ok and proof.get('dry-run') == current
+
+    # Batch semantics: unresolved real mappings block the handoff; isolated bad SKUs do not.
+    # As long as at least one SKU is runnable, BLOCKED / CL_ERROR rows are excluded from
+    # creation and remain visible for Audit instead of blocking the whole market batch.
+    preflight_ok = (
+        bool(reports)
+        and extract_ready
+        and proof.get('preflight') == current
+        and not mapping
+        and preflight_view['runnable'] > 0
+    )
+
+    # Keep the legacy app.py write gate compatible without making Dry Run mandatory.
+    # dry_run_actual is exposed separately for honest UI wording.
+    dry_run_actual = preflight_ok and proof.get('dry-run') == current
+    dry_ok = preflight_ok
     audit = current_audit(market)
     ac = Counter(r.get('run_status') for r in audit)
     # Count the same pending selection main.py uses, for the explicit write confirmation.
@@ -174,15 +308,35 @@ def status(market):
                     latest[item['sku']] = item
                 except (ValueError, KeyError):
                     continue
+    runnable_skus = {
+        (r.get('sku') or '').strip()
+        for r in reports
+        if r.get('status') in {'READY', 'READY_WITH_WARNINGS'}
+    }
     pending = [r for r in selected if r.get('status') in {'OK', 'SKIPPED'} and not (
         cfg['run'].get('skip_if_success', True) and
         latest.get(r.get('seller_sku') or r.get('requested_sku'), {}).get('status') in {'DRAFT_SAVED', 'ALREADY_EXISTS'})]
+    pending_runnable = [
+        r for r in pending
+        if (r.get('seller_sku') or r.get('requested_sku') or '').strip() in runnable_skus
+    ]
     return {'market': market, 'store_id': cfg['arkswift']['store_id'],
         'detect': {'total': len(detected), 'existing': dc['EXISTS'], 'need': dc['NEED_CREATE'], 'errors': dc['ERROR'], 'pending': dc['PENDING'],
                    'ready': detect_ready, 'message': detect_error},
         'extract': {'ready': extract_ready, 'counts': dict(Counter(r.get('status') for r in summary)), 'total': len(summary)},
-        'preflight': {'ready': preflight_ok, 'counts': dict(counts), 'mapping': len(mapping), 'has_report': bool(reports), 'blockers': [{'sku': r.get('sku'), 'reason': r.get('blockers', '')} for r in reports if r.get('status') in {'BLOCKED', 'CL_ERROR'}], 'suggested': artifact(market, 'suggested').is_file()},
-        'dry_run': dry_ok, 'write_count': len(pending), 'audit': dict(ac), 'audit_total': len(audit),
+        'preflight': {
+            'ready': preflight_ok,
+            'counts': dict(counts),
+            'mapping': len(mapping),
+            'blank_source_mapping': preflight_view['blank_source_mapping'],
+            'runnable': preflight_view['runnable'],
+            'excluded': preflight_view['excluded'],
+            'has_report': bool(reports),
+            'blockers': preflight_view['blockers'],
+            'suggested': artifact(market, 'suggested').is_file(),
+        },
+        'dry_run': dry_ok, 'dry_run_actual': dry_run_actual,
+        'write_count': len(pending_runnable), 'audit': dict(ac), 'audit_total': len(audit),
         'audit_scope': '本批次', 'write_started': bool(read_json(batch_path(market)).get('write_started_at')), 'fingerprint': current,
         'limited': bool(cfg['run'].get('target_sku') or cfg['run'].get('max_items') is not None)}
 
@@ -262,15 +416,8 @@ class JobManager:
                 params={'_storeId': client.store_id, '_lang': client.lang}, timeout=20, allow_redirects=False)
             client._decode(response, '测试连接')
         else:
-            from revflow.revflow import parse_curl_file, make_session, fetch_getdetail_for_sku, _query_value
-            from urllib.parse import urlsplit
-            url, headers = parse_curl_file(ROOT / 'revflow/getdetail.curl.txt')
-            session = make_session(headers, cookie_domain=urlsplit(url).hostname)
-            sku = _query_value(url, 'keyValue')
-            if not sku:
-                raise ValueError('缺少 GetDetail SKU')
-            fetch_getdetail_for_sku(session, url, sku, timeout=20,
-                                   resolved_line_guid=_query_value(url, 'lineGuid'))
+            if not browser_auth.validate_cl():
+                raise ValueError('CL login session is invalid or expired.')
 
     def _work(self, job):
         market, action = job['market'], job['action']
@@ -294,12 +441,48 @@ class JobManager:
                             log.write('[CONSOLE] Mapping 已应用，自动重新运行 Preflight。\n')
                             before = fingerprint(market)
                             code = self._cli('preflight', log, clean)
-                        if code == 0:
-                            message = '任务完成。' if action != 'mapping' else 'Mapping 已应用，重新预检通过。'
-                        elif action in {'detect', 'retry'}:
+
+                        # The CLI intentionally returns non-zero when any SKU is BLOCKED.
+                        # For the batch UI, that is not a whole-batch failure: if real
+                        # mapping issues are cleared and at least one SKU is runnable,
+                        # continue with the runnable subset and keep exclusions for Audit.
+                        if action in {'preflight', 'mapping'} and code != 0 and _preflight_can_continue(market):
+                            view = _preflight_view(market)
+                            code = 0
+                            log.write(
+                                f"[CONSOLE] {view['runnable']} runnable SKU(s); "
+                                f"{view['excluded']} excluded SKU(s) will not block the batch.\n"
+                            )
+                            if view['blank_source_mapping']:
+                                log.write(
+                                    f"[CONSOLE] {view['blank_source_mapping']} blank-source mapping row(s) "
+                                    "treated as source-data blockers, not actionable Mapping.\n"
+                                )
+                            message = (
+                                f"预检完成：{view['runnable']} 个 SKU 可继续；"
+                                f"{view['excluded']} 个异常 SKU 将跳过并记录到 Audit。"
+                            )
+
+                        if action == 'dry-run' and code != 0 and _preflight_can_continue(market) and _only_expected_failures(
+                            market, 'dry-run', job.get('started_at')
+                        ):
+                            code = 0
+                            message = 'Dry Run 完成；仅预检已排除的 SKU 失败，其余 SKU 可继续创建草稿。'
+                            log.write('[CONSOLE] Dry Run failures are limited to preflight-excluded SKUs.\n')
+
+                        if action == 'write' and code != 0 and _only_expected_failures(
+                            market, 'write', job.get('started_at')
+                        ):
+                            code = 0
+                            message = '批次完成：可运行 SKU 已处理；被排除的异常 SKU 已记录到 Audit。'
+                            log.write('[CONSOLE] Write failures are limited to preflight-excluded SKUs.\n')
+
+                        if code == 0 and not message.startswith(('预检完成', 'Dry Run 完成', '批次完成')):
+                            message = '任务完成。' if action != 'mapping' else 'Mapping 已应用，重新预检完成。'
+                        elif code != 0 and action in {'detect', 'retry'}:
                             message = '检测未全部通过，请查看 Errors 并重试；不能继续抓取。'
-                        elif action in {'preflight', 'mapping'}:
-                            message = '预检或映射尚未通过，请查看报告并处理。'
+                        elif code != 0 and action in {'preflight', 'mapping'}:
+                            message = '仍有可处理 Mapping 问题，或当前没有可运行 SKU；请查看报告。'
                 except Exception:
                     log.write(clean(traceback.format_exc()))
                     if action.startswith('test-'):

@@ -23,6 +23,7 @@ from werkzeug.exceptions import HTTPException
 import project_config as pc
 from sku_detect.detect import parse_skus
 from webui import workflow as wf
+import browser_auth
 
 SETTING_RULES = {'delay': (.1, 30, float), 'timeout': (5, 300, int), 'image_timeout': (5, 300, int),
                  'image_workers': (1, 8, int), 'max_images': (5, 12, int),
@@ -86,9 +87,8 @@ def create_app(manager=None):
             market = current()
             result = wf.status(market)
             result['markets'] = list(pc.read_json(ROOT / 'config/markets.json'))
-            result['auth'] = any(wf.read_json(ROOT / 'sku_write/auth.json').get(k) for k in ('raw_cookie', 'authorization_web'))
-            curl = ROOT / 'revflow/getdetail.curl.txt'
-            result['cl'] = curl.is_file() and bool(curl.read_text(encoding='utf-8-sig', errors='replace').strip())
+            result['auth'] = browser_auth.has_arkswift_auth(market)
+            result['cl'] = browser_auth.has_cl_auth()
             result['job'] = manager.latest(market)
             result['busy'] = bool(manager.active and manager.active['status'] == 'running')
             result['log'] = manager.log_tail(market)
@@ -104,9 +104,15 @@ def create_app(manager=None):
             selected = data.get('target', '')
             pc.market_config(selected)
             runtime = pc.load_runtime()
+            previous = runtime['market']
             runtime['market'] = selected
             wf.write_json(ROOT / 'config/runtime.json', runtime)
-            return jsonify(ok=True)
+            if selected != previous:
+                # ArkSwift credentials belong to one concrete store. Force a
+                # fresh configure/check after every country switch. CL remains
+                # reusable because RevFlow injects country context separately.
+                browser_auth.invalidate_arkswift_auth()
+            return jsonify(ok=True, arkswift_reconfigure=(selected != previous))
 
     @app.get('/api/settings')
     def settings():
@@ -136,6 +142,23 @@ def create_app(manager=None):
             wf.write_json(ROOT / 'sku_write/config.json', write_cfg)
             return jsonify(ok=True)
 
+    @app.post('/api/connect/<kind>')
+    def connect(kind):
+        data = request.get_json() or {}
+        with manager.lock:
+            manager.idle()
+            market = current(data)
+
+        if kind == 'ark':
+            mode = browser_auth.ensure_arkswift(market)
+            message = 'ArkSwift current session is valid.' if mode == 'existing' else 'ArkSwift sign-in captured and verified.'
+        elif kind == 'cl':
+            mode = browser_auth.ensure_cl()
+            message = 'CL current session is valid.' if mode == 'existing' else 'CL sign-in captured and verified.'
+        else:
+            raise ValueError('Unknown login type.')
+
+        return jsonify(ok=True, message=message, mode=mode)
     @app.post('/api/credentials/<kind>')
     def credentials(kind):
         data = request.get_json()
@@ -150,7 +173,13 @@ def create_app(manager=None):
                     raise ValueError('请填 Cookie 或 Authorization_web；空白不会覆盖现有凭证。')
                 if '\n' in cookie or '\r' in cookie or '\n' in authorization or '\r' in authorization:
                     raise ValueError('Cookie / Authorization 应为单行内容。')
-                wf.write_json(ROOT / 'sku_write/auth.json', {'raw_cookie': cookie.strip(), 'authorization_web': authorization.strip()})
+                info = pc.market_config(current(data))
+                wf.write_json(ROOT / 'sku_write/auth.json', {
+                    'raw_cookie': cookie.strip(),
+                    'authorization_web': authorization.strip(),
+                    'market': data['market'],
+                    'store_id': info['store_id'],
+                })
             elif kind == 'cl':
                 text = data.get('curl', '')
                 if not isinstance(text, str) or not text.strip():
@@ -178,9 +207,17 @@ def create_app(manager=None):
             manager.idle()
             market = current(data)
             action = data.get('action')
+
+        # 不把登录等待放在 manager.lock 里面，否则 UI 状态轮询会被锁住。
+        if action in {'detect', 'retry', 'preflight', 'mapping', 'dry-run', 'write', 'test-ark'}:
+            browser_auth.ensure_arkswift(market)
+        if action in {'extract', 'test-cl'}:
+            browser_auth.ensure_cl()
+
+        with manager.lock:
+            manager.idle()
+            current(data)
             snapshot = wf.status(market)
-            if action in {'detect', 'retry', 'preflight', 'mapping', 'dry-run', 'write', 'test-ark'}:
-                pc.load_auth()
             if action == 'detect':
                 skus = parse_skus(data.get('skus', ''))
                 path = pc.workspace_paths(market)['input'] / 'skus.txt'

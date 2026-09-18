@@ -56,9 +56,26 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
     temp.replace(path)
 
 
-def has_arkswift_auth() -> bool:
+def has_arkswift_auth(market: str | None = None) -> bool:
     auth = _read_json(ARK_AUTH)
-    return bool(str(auth.get("raw_cookie") or auth.get("authorization_web") or "").strip())
+    if not str(auth.get("raw_cookie") or auth.get("authorization_web") or "").strip():
+        return False
+    if market is None:
+        return True
+    try:
+        import project_config as pc
+        info = pc.market_config(market)
+    except Exception:
+        return False
+    return auth.get("market") == market and str(auth.get("store_id") or "") == info["store_id"]
+
+
+def invalidate_arkswift_auth() -> None:
+    """Remove the active ArkSwift credential when the selected store changes."""
+    try:
+        ARK_AUTH.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def has_cl_auth() -> bool:
@@ -276,7 +293,7 @@ def _launch(service: str, url: str) -> tuple[subprocess.Popen[Any], int, dict[st
     return process, port, target, browser
 
 
-def _capture(service: str, url: str, timeout: int = 300) -> dict[str, Any]:
+def _capture(service: str, url: str, timeout: int = 300, market: str | None = None) -> dict[str, Any]:
     host = urlsplit(url).hostname or ""
     _, _, target, browser = _launch(service, url)
     observed = _Observed()
@@ -296,12 +313,18 @@ def _capture(service: str, url: str, timeout: int = 300) -> dict[str, Any]:
             cdp.pump(0.35)
             cookies = cdp.command("Network.getAllCookies", timeout=3).get("cookies") or []
             raw_cookie = _cookie_header(cookies, host)
-            if service == "arkswift":
+            if service.startswith("arkswift"):
                 token = _cookie_value(cookies, host, "Authorization_web")
                 if token:
+                    if not market:
+                        raise BrowserAuthError("ArkSwift 登录捕获缺少市场信息。")
+                    import project_config as pc
+                    info = pc.market_config(market)
                     result = {
                         "raw_cookie": raw_cookie,
                         "authorization_web": token,
+                        "market": market,
+                        "store_id": info["store_id"],
                         "captured_at": _now(),
                         "browser": str(browser),
                     }
@@ -329,8 +352,10 @@ def _capture(service: str, url: str, timeout: int = 300) -> dict[str, Any]:
     )
 
 
-def capture_arkswift(timeout: int = 300) -> dict[str, Any]:
-    return _capture("arkswift", ARK_URL, timeout=timeout)
+def capture_arkswift(market: str, timeout: int = 300) -> dict[str, Any]:
+    # Each ArkSwift market/store gets its own browser profile. This prevents a
+    # login for one store from overwriting another store's browser session.
+    return _capture(f"arkswift_{market}", ARK_URL, timeout=timeout, market=market)
 
 
 def capture_cl(timeout: int = 300) -> dict[str, Any]:
@@ -338,7 +363,7 @@ def capture_cl(timeout: int = 300) -> dict[str, Any]:
 
 
 def validate_arkswift(market: str) -> bool:
-    if not has_arkswift_auth():
+    if not has_arkswift_auth(market):
         return False
     try:
         import project_config as pc
@@ -414,7 +439,7 @@ def validate_cl() -> bool:
 def ensure_arkswift(market: str, timeout: int = 300) -> str:
     if validate_arkswift(market):
         return "existing"
-    capture_arkswift(timeout=timeout)
+    capture_arkswift(market, timeout=timeout)
     if not validate_arkswift(market):
         raise BrowserAuthError("ArkSwift 已捕获浏览器登录态，但 API 验证仍失败。请确认当前账号有该市场店铺权限。")
     return "captured"

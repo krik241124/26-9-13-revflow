@@ -10,7 +10,7 @@ ArkSwift 内部自动上品工具。日常运营通过本地 Web 控制台完成
 
 第一次在一台电脑上使用：
 
-1. 安装 Python 3.10+（Windows 需包含 Python Launcher）。
+1. 安装 Python 3.10+。`setup.bat` 会优先使用 `py -3`，没有 Python Launcher 时也会尝试普通 `python`。
 2. 双击 `setup.bat`，等待依赖安装与工作目录初始化完成。
 3. 双击 `start.bat`，浏览器会自动打开本地控制台。
 
@@ -20,7 +20,7 @@ ArkSwift 内部自动上品工具。日常运营通过本地 Web 控制台完成
 
 ## 日常流程
 
-1. 选择目标市场，配置并测试 ArkSwift 登录和当前国家的 CL GetDetail cURL。
+1. 选择目标市场。ArkSwift 登录按市场/店铺隔离并需在切换国家后重新 Check / Sign in；CL 登录态全局复用，国家上下文由 `config/markets.json` 自动选择。
 2. **Step 1 · SKU Detect**：粘贴或导入 SKU，确认 Errors 为 0。
 3. **Step 2 · RevFlow**：抓取 CL 产品资料和图片。
 4. **Step 3 · Preflight / Mapping**：处理 Mapping、尺寸、重量、图片等阻塞项，直到预检通过。

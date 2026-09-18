@@ -2,51 +2,71 @@
   "fr": {
     "store_id": "1182948379987877889",
     "seller_id": "1182921913048834049",
-    "country_code": "FR"
+    "country_code": "FR",
+    "cl_language": "FR",
+    "cl_country_guid": "1553d45c-f23c-11ea-93cd-0242ac110002"
   },
   "ca": {
     "store_id": "1278605518126755841",
     "seller_id": "1182921913048834049",
-    "country_code": "CA"
+    "country_code": "CA",
+    "cl_language": "CA",
+    "cl_country_guid": "1553d45c-f23c-11ea-93cd-0242ac110002"
   },
   "de": {
     "store_id": "1166607164149436416",
     "seller_id": "1182921913048834049",
-    "country_code": "DE"
+    "country_code": "DE",
+    "cl_language": "DE",
+    "cl_country_guid": "15564159-f23c-11ea-93cd-0242ac110002"
   },
   "es": {
     "store_id": "1182950710066356224",
     "seller_id": "1182921913048834049",
-    "country_code": "ES"
+    "country_code": "ES",
+    "cl_language": "ES",
+    "cl_country_guid": "1556a3d8-f23c-11ea-93cd-0242ac110002"
   },
   "us": {
     "store_id": "1233245217051447296",
     "seller_id": "1182921913048834049",
-    "country_code": "US"
+    "country_code": "US",
+    "cl_language": "US",
+    "cl_country_guid": "d8cc1f96-0928-11eb-93cd-0242ac110002"
   },
   "it": {
     "store_id": "1182948946629943297",
     "seller_id": "1182921913048834049",
-    "country_code": "IT"
+    "country_code": "IT",
+    "cl_language": "IT",
+    "cl_country_guid": "155691b4-f23c-11ea-93cd-0242ac110002"
   },
   "uk": {
     "store_id": "1166578622418173952",
     "seller_id": "1182921913048834049",
-    "country_code": "UK"
+    "country_code": "UK",
+    "cl_language": "UK",
+    "cl_country_guid": "1556528d-f23c-11ea-93cd-0242ac110002"
   },
   "pt": {
     "store_id": "1207599464169963520",
     "seller_id": "1182921913048834049",
-    "country_code": "PT"
+    "country_code": "PT",
+    "cl_language": "PT",
+    "cl_country_guid": "1556a3d8-f23c-11ea-93cd-0242ac110002"
   },
   "pl": {
     "store_id": "1233246716422864896",
     "seller_id": "1182921913048834049",
-    "country_code": "PL"
+    "country_code": "PL",
+    "cl_language": "PL",
+    "cl_country_guid": "15564159-f23c-11ea-93cd-0242ac110002"
   },
   "ro": {
     "store_id": "1207585193998483456",
     "seller_id": "1182921913048834049",
-    "country_code": "RO"
+    "country_code": "RO",
+    "cl_language": "RO",
+    "cl_country_guid": "0e2aee59-5887-4845-babc-5f512b01734a"
   }
 }

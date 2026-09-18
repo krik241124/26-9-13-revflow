@@ -1,5 +1,4 @@
-# 登录 CL，切换到与 config/runtime.json 相同的国家。
-# F12 -> Network -> 打开一个 SKU 详情 -> 找到 GetDetail 请求。
-# 右键 Copy as cURL，将完整内容保存到同目录 getdetail.curl.txt。
-# 此文件只提供说明，不是可执行 cURL，也不能直接改名后运行。
-# 切国家或登录失效后重新复制，不将真实 cURL 放进源码交付包。
+# Legacy/manual fallback only. Normal Web UI runs capture the shared CL login session automatically.
+# RevFlow reads cl_country_guid / cl_language from config/markets.json for the active market.
+# If manual diagnosis is ever needed: capture a complete GetDetail cURL and save it as getdetail.curl.txt.
+# Never put a real cURL, cookie, or token into the source release package.

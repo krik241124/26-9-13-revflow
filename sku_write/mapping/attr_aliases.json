@@ -371,7 +371,11 @@
     "pink, blue": "Pink+Blue",
     "red, black,white": "Multi",
     "red, green": "Multi",
-    "white, orange": "Multi"
+    "white, orange": "Multi",
+    "Verde, branco": "White+Green",
+    "Cinza-escuro": "Dark Gray",
+    "Cor-de-rosa": "Pink",
+    "Roxo": "Purple"
   },
   "material": {
     "Velours côtelé (100% polyester), bois d'hévéa": "Corduroy",
@@ -1506,7 +1510,18 @@
     "Zinc Alloy": "Alloy",
     "Zinc-coated steel pipe, Powder-coated steel mesh, PE Coat": "Galvanized Steel",
     "polyester thatch": "Polyester",
-    "polyester,Metal": "Polyester"
+    "polyester,Metal": "Polyester",
+    "PVC, plástico": "PVC",
+    "Aglomerado de partículas, aço": "Particle Board",
+    "Aço, EVA": "Steel",
+    "MDF, Acrílico": "MDF",
+    "MDF, acrílico": "MDF",
+    "Madeira Contraplacada": "Plywood",
+    "PVC, aço": "PVC",
+    "Painel de partículas, aço": "Particle Board",
+    "Tecido aveludado, espuma": "Velvet",
+    "Tecido não tecido, aço": "Fabric",
+    "Tecido tipo linho, aço": "Linen"
   },
   "origin": {
     "CN": "China"

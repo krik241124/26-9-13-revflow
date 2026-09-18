@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="console-token" content="{{ token }}">
   <title>ArkSwift AutoListing</title>
-  <link rel="stylesheet" href="/static/app.css?v=saas-20260918-v2">
+  <link rel="stylesheet" href="/static/app.css?v=saas-20260918-v5">
   <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -56,11 +56,24 @@
       <label>Market<select id="market" aria-label="Market"></select></label>
       <div>
         <span class="label">ArkSwift credentials</span>
-        <button id="ark-open" class="config-button" type="button"><span id="ark-status">○ Not configured</span><span>Configure ↗</span></button>
+        <button id="ark-open" class="config-button" type="button">
+          <span id="ark-status" class="status-pill status-pill-bad">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-text">Not configured</span>
+          </span>
+          <span>Check / Sign in ↗</span>
+        </button>
       </div>
+
       <div>
-        <span class="label">CL data source</span>
-        <button id="cl-open" class="config-button" type="button"><span id="cl-status">○ Not configured</span><span>Configure ↗</span></button>
+        <span class="label">CL session</span>
+        <button id="cl-open" class="config-button" type="button">
+          <span id="cl-status" class="status-pill status-pill-bad">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-text">Not configured</span>
+          </span>
+          <span>Check / Sign in ↗</span>
+        </button>
       </div>
       <button id="settings-open" class="soft settings" type="button">Run settings</button>
     </section>
@@ -135,7 +148,7 @@
             </dl>
             <p class="step-note">No file copying needed. This step automatically reads the result of Step 1.</p>
             <div id="extract-metrics" class="metrics"></div>
-            <p class="hint">After switching market, make sure the CL cURL belongs to the current country.</p>
+            <p class="hint">CL login is shared. RevFlow selects the current country from the market configuration automatically.</p>
             <div class="push"></div>
             <button id="extract" class="primary wide" type="button" disabled>Run RevFlow</button>
             <div class="links">
@@ -243,18 +256,18 @@
 
   <dialog id="ark-dialog">
     <form method="dialog"><div class="modal-head"><h2>ArkSwift credentials</h2><button class="close" aria-label="Close">×</button></div></form>
-    <p>After logging in to ArkSwift, copy the authentication data from your browser Network requests. Saved credentials are not echoed back. If you only want to test an existing saved credential, you do not need to paste it again.</p>
+    <p>ArkSwift credentials are bound to the currently selected market/store. Switching market invalidates the active credential. The main Check / Sign in button validates the current session and opens the isolated market login profile only when needed.</p>
     <label>Authorization_web (or Cookie)<input id="authorization" type="password" autocomplete="off"></label>
     <label>Cookie<textarea id="cookie" rows="5" autocomplete="off" spellcheck="false"></textarea></label>
-    <p class="hint">Configured only means a credential exists locally. Use Test connection to verify that it is still valid. If both are provided, Cookie is preferred.</p>
+    <p class="hint">Manual fallback only. Saved credentials are tagged with the current market and store. Use Test connection to verify that the session is still valid.</p>
     <div class="button-row"><button id="ark-save" class="primary" type="button">Save</button><button id="ark-test" type="button">Test connection</button></div>
   </dialog>
 
   <dialog id="cl-dialog">
     <form method="dialog"><div class="modal-head"><h2>CL cURL</h2><button class="close" aria-label="Close">×</button></div></form>
-    <p>Open CL, switch to the current country, then copy the request:<br>F12 → Network → GetDetail → Copy as cURL → paste below.</p>
+    <p>Manual fallback only. CL login itself is shared across markets; RevFlow takes the current country GUID from config/markets.json. You normally do not need to replace CL credentials after switching market.</p>
     <textarea id="curl" rows="9" placeholder="Paste the full GetDetail cURL here" autocomplete="off" spellcheck="false"></textarea>
-    <p class="hint">Saved cURL values are not echoed back. You must update the cURL after switching country. Test only validates the connection; it does not replace country checking.</p>
+    <p class="hint">Saved fallback cURL values are not echoed back. Country selection is handled by market configuration, not by replacing the CL login session.</p>
     <div class="button-row"><button id="cl-save" class="primary" type="button">Save</button><button id="cl-test" type="button">Test connection</button></div>
   </dialog>
 

@@ -91,8 +91,18 @@ def main():
         if issue_type not in {"category", "color", "material"}:
             skipped += 1
             continue
-        if not source or not target:
-            errors.append(f"CSV line {i}: {issue_type} source/target 为空")
+        if not source:
+            skipped += 1
+            print(
+                f"[SKIP] CSV line {i}: {issue_type} source_value 为空，无可应用映射"
+            )
+            continue
+
+        if not target:
+            skipped += 1
+            print(
+                f"[SKIP] CSV line {i}: {issue_type} suggested_target 为空，保留待人工确认"
+            )
             continue
 
         if issue_type == "category":

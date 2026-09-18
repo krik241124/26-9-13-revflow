@@ -1,5 +1,5 @@
 :root{
-  --nav-width:264px;
+  --nav-width:clamp(240px,16vw,320px);
   --bg:#f5f7fb;
   --surface:#ffffff;
   --surface-2:#f9fbfe;
@@ -118,6 +118,44 @@ h1{margin:0;font-size:34px;line-height:1.18;letter-spacing:-.9px;font-weight:700
 .config-button > span:last-child{font-size:12px;color:#5f789b}
 .settings{height:46px;white-space:nowrap}
 
+.status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:600;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.status-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  flex:0 0 auto;
+}
+
+.status-pill-good{
+  background:var(--success-bg);
+  color:var(--success);
+}
+
+.status-pill-good .status-dot{
+  background:var(--success);
+}
+
+.status-pill-bad{
+  background:var(--danger-bg);
+  color:var(--danger);
+}
+
+.status-pill-bad .status-dot{
+  background:var(--danger);
+}
+
+
 .notice{margin:0 0 18px;padding:13px 15px;border-radius:12px;background:#ebf2fd;border:1px solid #d6e2f4;color:#315d99;font-size:13px;line-height:1.65}
 .notice.error{background:var(--danger-bg);border-color:#eed4cd;color:var(--danger)}
 
@@ -201,27 +239,205 @@ dd{margin:0;color:#425972;overflow-wrap:anywhere}
 .result-links{width:100%;margin-top:4px}
 .results .metrics{margin-top:14px}
 
-.log-sidebar{position:sticky;top:18px;min-width:0}
-.log-sidebar details{margin:0;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:18px}
-.log-sidebar summary{display:flex;flex-direction:column;gap:10px;cursor:pointer;font-size:16px;font-weight:700;color:#24415f}
-.log-sidebar summary span{font-size:12px;font-weight:600;color:#68809a}
-.follow-control{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#6d85a0}
-.follow-control input{width:auto;margin:0;accent-color:var(--primary)}
-pre{margin:12px 0 0;padding:14px;border-radius:12px;white-space:pre-wrap;word-break:break-word;font-family:Consolas,monospace;font-size:11px;line-height:1.75;overflow:auto}
-.log-sidebar pre{height:calc(100vh - 360px);min-height:320px;max-height:680px;background:#132131;color:#d6e5f4}
+.log-sidebar{
+  position:sticky;
+  top:18px;
+  min-width:0;
+  min-height:0;
+  align-self:start;
+  overflow:hidden;
+}
+
+.log-sidebar details{
+  margin:0;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+  box-shadow:var(--shadow);
+  padding:18px;
+}
+
+/*
+ * The Live activity card is a fixed-height flex column on desktop.
+ * The log viewport is the only child allowed to grow/shrink.
+ */
+.log-sidebar details[open]{
+  display:flex;
+  flex-direction:column;
+}
+
+.log-sidebar summary{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  flex:0 0 auto;
+
+  cursor:pointer;
+  font-size:16px;
+  font-weight:700;
+  color:#24415f;
+}
+
+.log-sidebar summary span{
+  font-size:12px;
+  font-weight:600;
+  color:#68809a;
+}
+
+.log-sidebar p.hint{
+  margin:8px 0 0;
+  flex:0 0 auto;
+}
+
+.log-sidebar .follow-control{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:10px;
+  flex:0 0 auto;
+  width:auto;
+}
+
+.log-sidebar .follow-control input{
+  width:auto;
+  margin:0;
+  padding:0;
+  flex:0 0 auto;
+  accent-color:var(--primary);
+}
+
+/*
+ * Real log viewport.
+ * Do not use height:0 here. <details> uses an internal content wrapper in
+ * Chromium, so flex-grow on the PRE is not a reliable way to fill the card.
+ * Desktop height is calculated by syncLogSidebarHeight() in app.js.
+ */
+.log-sidebar pre,
+#log-content{
+  flex:none;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  min-height:120px;
+  height:220px;
+  max-height:none;
+  margin:12px 0 0;
+  padding:12px;
+
+  overflow-y:scroll;
+  overflow-x:auto;
+  scrollbar-gutter:stable;
+  overscroll-behavior:contain;
+
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+
+  border-radius:10px;
+  background:#132131;
+  color:#d6e5f4;
+  font-family:"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+  font-size:12px;
+  line-height:1.45;
+
+  /* Firefox */
+  scrollbar-width:thin;
+  scrollbar-color:#718195 #1b2a39;
+}
+
+/* Chrome / Edge */
+#log-content::-webkit-scrollbar{
+  width:9px;
+  height:9px;
+}
+
+#log-content::-webkit-scrollbar-track{
+  background:#1b2a39;
+  border-radius:999px;
+}
+
+#log-content::-webkit-scrollbar-thumb{
+  background:#718195;
+  border:2px solid #1b2a39;
+  border-radius:999px;
+}
+
+#log-content::-webkit-scrollbar-thumb:hover{
+  background:#8997a8;
+}
+
+#log-content::-webkit-scrollbar-corner{
+  background:#1b2a39;
+}
 
 footer{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:20px;font-size:11px;color:#7590ad}
 
-dialog{border:1px solid var(--line);border-radius:18px;padding:24px;width:560px;max-width:calc(100vw - 24px);color:var(--text);box-shadow:0 28px 90px rgba(20,35,58,.24)}
+dialog{
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:24px;
+  width:560px;
+  max-width:calc(100vw - 32px);
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  color:var(--text);
+  background:var(--surface);
+  box-shadow:0 28px 90px rgba(20,35,58,.24);
+}
 dialog::backdrop{background:rgba(12,22,35,.45);backdrop-filter:blur(2px)}
 dialog p{font-size:12px;line-height:1.85;color:#617791}
 dialog label{margin:14px 0}
-.modal-head{display:flex;justify-content:space-between;align-items:center}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:16px}
 .modal-head h2{margin:0;font-size:22px;line-height:1.2;letter-spacing:-.5px}
 .close{border:0;background:none;padding:0 6px;font-size:26px;color:#7f93a8}
 .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
-.report-dialog{width:min(980px,calc(100vw - 24px))}
-.report-dialog pre{max-height:65vh;background:#f4f7fb;color:#35506f}
+
+.report-dialog{
+  width:min(1100px,calc(100vw - 48px));
+  height:min(760px,calc(100vh - 48px));
+  max-height:calc(100vh - 48px);
+  padding:0;
+  overflow:hidden;
+}
+
+.report-dialog[open]{
+  display:flex;
+  flex-direction:column;
+}
+
+.report-dialog .modal-head{
+  flex:0 0 auto;
+  padding:20px 22px 0;
+}
+
+.report-dialog > .hint{
+  flex:0 0 auto;
+  margin:8px 0 12px;
+  padding:0 22px;
+}
+
+.report-dialog pre{
+  flex:1 1 auto;
+  min-height:0;
+  max-height:none;
+  margin:0 22px 22px;
+  padding:14px;
+  overflow:auto;
+  scrollbar-gutter:stable;
+  white-space:pre;
+  overflow-wrap:normal;
+  word-break:normal;
+  border:1px solid var(--line-2);
+  border-radius:12px;
+  background:#f4f7fb;
+  color:#35506f;
+}
 .confirm-box{margin:8px 0 12px;padding:10px 16px;border-radius:12px;border:1px solid #dbe5f3;background:#edf4fe}
 .confirm-box p{margin:8px 0;color:#31506f}
 
@@ -232,13 +448,12 @@ dialog label{margin:14px 0}
   .stage-title{font-size:21px}
 }
 @media (max-width:1180px){
-  :root{--nav-width:224px}
-  .nav-brand{font-size:26px}
-  .nav-item{font-size:15px}
-  .stage-switcher{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pipeline-layout{grid-template-columns:1fr}
-  .log-sidebar{position:relative;top:auto}
-  .log-sidebar pre{height:220px;min-height:0;max-height:none}
+  .log-sidebar{position:relative;top:auto;height:auto!important;overflow:visible}
+  .log-sidebar details{height:auto;overflow:hidden}
+  .log-sidebar details[open]{display:flex;flex-direction:column}
+  .log-sidebar pre,#log-content{flex:0 0 220px;height:220px;min-height:220px;max-height:220px;overflow-y:scroll}
+  .report-dialog{width:calc(100vw - 24px);height:calc(100vh - 24px);max-height:calc(100vh - 24px)}
 }
 @media (max-width:900px){
   :root{--nav-width:0px}
